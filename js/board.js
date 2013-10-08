@@ -626,7 +626,7 @@ DrawingBoard.Board.prototype = {
       }
 
       if (currentUserData.isDrawing) {
-        var currentMid = this._getMidInputCoords(currentUserData.coords.current);
+        var currentMid = this._getMidInputCoords(currentUserData.coords.old, currentUserData.coords.current);
         this.ctx.beginPath();
         this.ctx.moveTo(currentMid.x, currentMid.y);
         this.ctx.quadraticCurveTo(currentUserData.coords.old.x, currentUserData.coords.old.y, currentUserData.coords.oldMid.x, currentUserData.coords.oldMid.y);
@@ -643,7 +643,7 @@ DrawingBoard.Board.prototype = {
 
 	_onInputStart: function(e, coords) {
 		this.userData[this.goinstant.userKey.name].coords.current = this.userData[this.goinstant.userKey.name].coords.old = coords;
-		this.userData[this.goinstant.userKey.name].coords.oldMid = this._getMidInputCoords(coords);
+		this.userData[this.goinstant.userKey.name].coords.oldMid = this._getMidInputCoords(this.userData[this.goinstant.userKey.name].coords.old, coords);
     this.userData[this.goinstant.userKey.name].isDrawing = true;
 
     this.goinstant.userKey.key('/coords/current').set(this.userData[this.goinstant.userKey.name].coords.current, throwIfError);
@@ -689,7 +689,7 @@ DrawingBoard.Board.prototype = {
 	_onMouseOver: function(e, coords) {
     this.userData[this.goinstant.userKey.name].isMouseHovering = true;
     this.userData[this.goinstant.userKey.name].coords.old = this._getInputCoords(e);
-    this.userData[this.goinstant.userKey.name].coords.oldMid = this._getMidInputCoords(this.userData[this.goinstant.userKey.name].coords.old);
+    this.userData[this.goinstant.userKey.name].coords.oldMid = this._getMidInputCoords(this.userData[this.goinstant.userKey.name].coords.old, this.userData[this.goinstant.userKey.name].coords.old);
 
     this.goinstant.userKey.key('/isMouseHovering').set(this.userData[this.goinstant.userKey.name].isMouseHovering, throwIfError);
     this.goinstant.userKey.key('/coords/old').set(this.userData[this.goinstant.userKey.name].coords.old, throwIfError);
@@ -721,10 +721,10 @@ DrawingBoard.Board.prototype = {
 		};
 	},
 
-	_getMidInputCoords: function(coords) {
+	_getMidInputCoords: function(oldCoords, coords) {
 		return {
-			x: this.userData[this.goinstant.userKey.name].coords.old.x + coords.x>>1,
-			y: this.userData[this.goinstant.userKey.name].coords.old.y + coords.y>>1
+			x: oldCoords.x + coords.x>>1,
+			y: oldCoords.y + coords.y>>1
 		};
 	}
 };
