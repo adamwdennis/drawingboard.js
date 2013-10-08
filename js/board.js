@@ -612,30 +612,34 @@ DrawingBoard.Board.prototype = {
 	},
 
 	draw: function() {
-		//if the pencil size is big (>10), the small crosshair makes a friend: a circle of the size of the pencil
-		//todo: have the circle works on every browser - it currently should be added only when CSS pointer-events are supported
-		//we assume that if requestAnimationFrame is supported, pointer-events is too, but this is terribad.
-		if (window.requestAnimationFrame && this.ctx.lineWidth > 10 && this.isMouseHovering) {
-			this.dom.$cursor.css({ width: this.ctx.lineWidth + 'px', height: this.ctx.lineWidth + 'px' });
-			var transform = DrawingBoard.Utils.tpl("translateX({{x}}px) translateY({{y}}px)", { x: this.coords.current.x-(this.ctx.lineWidth/2), y: this.coords.current.y-(this.ctx.lineWidth/2) });
-			this.dom.$cursor.css({ 'transform': transform, '-webkit-transform': transform, '-ms-transform': transform });
-			this.dom.$cursor.removeClass('drawing-board-utils-hidden');
-		} else {
-			this.dom.$cursor.addClass('drawing-board-utils-hidden');
-		}
+    _.forEach(this.userData, function(currentUserData) {
+      //if the pencil size is big (>10), the small crosshair makes a friend: a circle of the size of the pencil
+      //todo: have the circle works on every browser - it currently should be added only when CSS pointer-events are supported
+      //we assume that if requestAnimationFrame is supported, pointer-events is too, but this is terribad.
+      if (window.requestAnimationFrame && this.ctx.lineWidth > 10 && currentUserData.isMouseHovering) {
+        this.dom.$cursor.css({ width: this.ctx.lineWidth + 'px', height: this.ctx.lineWidth + 'px' });
+        var transform = DrawingBoard.Utils.tpl("translateX({{x}}px) translateY({{y}}px)", { x: currentUserData.coords.current.x-(this.ctx.lineWidth/2), y: currentUserData.coords.current.y-(this.ctx.lineWidth/2) });
+        this.dom.$cursor.css({ 'transform': transform, '-webkit-transform': transform, '-ms-transform': transform });
+        this.dom.$cursor.removeClass('drawing-board-utils-hidden');
+      } else {
+        this.dom.$cursor.addClass('drawing-board-utils-hidden');
+      }
 
-		if (this.isDrawing) {
-			var currentMid = this._getMidInputCoords(this.coords.current);
-			this.ctx.beginPath();
-			this.ctx.moveTo(currentMid.x, currentMid.y);
-			this.ctx.quadraticCurveTo(this.coords.old.x, this.coords.old.y, this.coords.oldMid.x, this.coords.oldMid.y);
-			this.ctx.stroke();
+      if (currentUserData.isDrawing) {
+        console.log("currentUserData:",currentUserData, this);
+        var currentMid = this._getMidInputCoords(currentUserData.coords.current);
+        this.ctx.beginPath();
+        this.ctx.moveTo(currentMid.x, currentMid.y);
+        this.ctx.quadraticCurveTo(currentUserData.coords.old.x, currentUserData.coords.old.y, currentUserData.coords.oldMid.x, currentUserData.coords.oldMid.y);
+        this.ctx.stroke();
 
-			this.coords.old = this.coords.current;
-			this.coords.oldMid = currentMid;
-		}
-
-		if (window.requestAnimationFrame) requestAnimationFrame( $.proxy(function() { this.draw(); }, this) );
+        currentUserData.coords.old = currentUserData.coords.current;
+        currentUserData.coords.oldMid = currentMid;
+      }
+      if (window.requestAnimationFrame) {
+        requestAnimationFrame( $.proxy(function() { this.draw(); }, this) );
+      }
+    }.bind(this));
 	},
 
 	_onInputStart: function(e, coords) {
