@@ -626,7 +626,6 @@ DrawingBoard.Board.prototype = {
       }
 
       if (currentUserData.isDrawing) {
-        console.log("currentUserData:",currentUserData, this);
         var currentMid = this._getMidInputCoords(currentUserData.coords.current);
         this.ctx.beginPath();
         this.ctx.moveTo(currentMid.x, currentMid.y);
