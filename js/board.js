@@ -603,7 +603,7 @@ DrawingBoard.Board.prototype = {
 
 		$('body').on('mouseup touchend', $.proxy(function(e) {
       this.userData[this.goinstant.userKey.name].isDrawing = false;
-      this.goinstant.userKey.key('/isDrawing').set(false, throwIfError);
+      this.goinstant.userKey.key('/isDrawing').set(this.userData[this.goinstant.userKey.name].isDrawing, throwIfError);
 		}, this));
 
 		if (window.requestAnimationFrame) {
@@ -646,6 +646,9 @@ DrawingBoard.Board.prototype = {
 		this.userData[this.goinstant.userKey.name].coords.current = this.userData[this.goinstant.userKey.name].coords.old = coords;
 		this.userData[this.goinstant.userKey.name].coords.oldMid = this._getMidInputCoords(coords);
     this.userData[this.goinstant.userKey.name].isDrawing = true;
+
+    this.goinstant.userKey.key('/coords/current').set(this.userData[this.goinstant.userKey.name].coords.current, throwIfError);
+    this.goinstant.userKey.key('/coords/oldMid').set(this.userData[this.goinstant.userKey.name].coords.oldMid, throwIfError);
     this.goinstant.userKey.key('/isDrawing').set(true, throwIfError);
 
 		if (!window.requestAnimationFrame) {
@@ -688,7 +691,10 @@ DrawingBoard.Board.prototype = {
     this.userData[this.goinstant.userKey.name].isMouseHovering = true;
     this.userData[this.goinstant.userKey.name].coords.old = this._getInputCoords(e);
     this.userData[this.goinstant.userKey.name].coords.oldMid = this._getMidInputCoords(this.userData[this.goinstant.userKey.name].coords.old);
-    this.goinstant.userKey.key('/isMouseHovering').set(true, throwIfError);
+
+    this.goinstant.userKey.key('/isMouseHovering').set(this.userData[this.goinstant.userKey.name].isMouseHovering, throwIfError);
+    this.goinstant.userKey.key('/coords/old').set(this.userData[this.goinstant.userKey.name].coords.old, throwIfError);
+    this.goinstant.userKey.key('/coords/oldMid').set(this.userData[this.goinstant.userKey.name].coords.oldMid, throwIfError);
 
 		this.ev.trigger('board:mouseOver', {e: e, coords: coords});
 	},
