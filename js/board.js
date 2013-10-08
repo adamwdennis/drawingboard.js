@@ -21,6 +21,9 @@ DrawingBoard.Board = function(id, opts) {
     userKey: this.opts.goinstant.userKey,
     channel: this.opts.goinstant.room.channel('drawingboard.js')
   };
+
+  console.log("I am:", this.goinstant.userKey);
+
   this.userData = {};
 
   // subscribe to events for all users
@@ -75,12 +78,23 @@ DrawingBoard.Board = function(id, opts) {
 	this.ctx = this.canvas && this.canvas.getContext && this.canvas.getContext('2d') ? this.canvas.getContext('2d') : null;
 	this.color = this.opts.color;
 
+  console.log("USERDATA:",this.userData);
 	if (!this.ctx) {
 		if (this.opts.errorMessage)
 			this.$el.html(this.opts.errorMessage);
 		return false;
 	}
 
+  /*
+  this.goinstant.userKey.key('/ctx/canvas/width').set(this.ctx.canvas.width, throwIfError);
+  this.goinstant.userKey.key('/ctx/canvas/height').set(this.ctx.canvas.height, throwIfError);
+  this.goinstant.userKey.key('/ctx/lineWidth').set(this.ctx.lineWidth, throwIfError);
+  this.goinstant.userKey.key('/ctx/lineCap').set(this.ctx.lineCap, throwIfError);
+  this.goinstant.userKey.key('/ctx/lineJoin').set(this.ctx.lineJoin, throwIfError);
+  this.goinstant.userKey.key('/ctx/fillStyle').set(this.ctx.fillStyle, throwIfError);
+  this.goinstant.userKey.key('/ctx/globalCompositeOperation').set(this.ctx.globalCompositeOperation, throwIfError);
+  this.goinstant.userKey.key('/ctx/strokeStyle').set(this.ctx.strokeStyle, throwIfError);
+  */
 	this.storage = this._getStorage();
 
 	this.initHistory();
@@ -177,7 +191,6 @@ DrawingBoard.Board.prototype = {
 
 		this.ctx.lineCap = "round";
 		this.ctx.lineJoin = "round";
-		// this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.width);
 
 		if (opts.webStorage) this.saveWebStorage();
 
