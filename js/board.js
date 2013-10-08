@@ -603,7 +603,7 @@ DrawingBoard.Board.prototype = {
 
 		$('body').on('mouseup touchend', $.proxy(function(e) {
       this.userData[this.goinstant.userKey.name].isDrawing = false;
-      this.goinstant.userKey.key('/isDrawing').set(false, throwIferror);
+      this.goinstant.userKey.key('/isDrawing').set(false, throwIfError);
 		}, this));
 
 		if (window.requestAnimationFrame) {
