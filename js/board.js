@@ -16,6 +16,26 @@
 DrawingBoard.Board = function(id, opts) {
 	this.opts = $.extend({}, DrawingBoard.Board.defaultOpts, opts);
 
+  this.goinstant = {
+    room: this.opts.goinstant.room,
+    userKey: this.opts.goinstant.userKey,
+    channel: this.opts.goinstant.room.channel('drawingboard.js')
+  };
+  this.userData = {};
+
+  // subscribe to events for all users
+  console.log("Displaying all users in room:");
+  this.goinstant.room.users(function(err, userMap, keyMap) {
+    _.forEach(_.keys(userMap), function(curUserKey) {
+      if (this.goinstant.userKey.name !== keyMap[curUserKey].name) {
+        // setup Listeners
+        this.setupListeners({
+          user: keyMap[curUserKey]
+        });
+      }
+    }.bind(this));
+  }.bind(this));
+
 	this.ev = new DrawingBoard.Utils.MicroEvent();
 
 	this.id = id;
@@ -42,6 +62,15 @@ DrawingBoard.Board = function(id, opts) {
 		}
 	}, this));
 
+  this.userData[this.goinstant.userKey.name] = {
+    isDrawing: false,
+    isMouseHovering: false,
+    coords: {
+      current: { x: 0, y: 0 },
+      old: { x: 0, y: 0 },
+      oldMid: { x: 0, y: 0 }
+    }
+  };
 	this.canvas = this.dom.$canvas.get(0);
 	this.ctx = this.canvas && this.canvas.getContext && this.canvas.getContext('2d') ? this.canvas.getContext('2d') : null;
 	this.color = this.opts.color;
@@ -84,6 +113,11 @@ DrawingBoard.Board.defaultOpts = {
 };
 
 
+function throwIfError(err) {
+  if (err) {
+    throw err;
+  }
+}
 
 DrawingBoard.Board.prototype = {
 
@@ -95,6 +129,35 @@ DrawingBoard.Board.prototype = {
 	 *
 	 * resize values depend on the `enlargeYourContainer` option
 	 */
+
+  setupListeners: function(opts) {
+    if (!this.userData[opts.user.name]) {
+      this.userData[opts.user.name] = {
+        isDrawing: false,
+        isMouseHovering: false,
+        coords: {
+          current: { x: 0, y: 0 },
+          old: { x: 0, y: 0 },
+          oldMid: { x: 0, y: 0 }
+        }
+      };
+    }
+    opts.user.key('/isDrawing').on('set', function(val) {
+      this.userData[opts.user.name].isDrawing = val;
+    }.bind(this), throwIfError);
+    opts.user.key('/isMouseHovering').on('set', function(val) {
+      this.userData[opts.user.name].isMouseHovering = val;
+    }.bind(this), throwIfError);
+    opts.user.key('/coords/current').on('set', function(val) {
+      this.userData[opts.user.name].coords.current = val;
+    }.bind(this), throwIfError);
+    opts.user.key('/coords/old').on('set', function(val) {
+      this.userData[opts.user.name].coords.old = val;
+    }.bind(this), throwIfError);
+    opts.user.key('/coords/oldMid').on('set', function(val) {
+      this.userData[opts.user.name].coords.oldMid = val;
+    }.bind(this), throwIfError);
+  },
 
 	reset: function(opts) {
 		opts = $.extend({
@@ -205,10 +268,10 @@ DrawingBoard.Board.prototype = {
 		for (var i = 0; i < this.opts.controls.length; i++) {
 			var c = null;
 			if (typeof this.opts.controls[i] == "string")
-				c = new window['DrawingBoard']['Control'][this.opts.controls[i]](this);
+				c = new window.DrawingBoard.Control[this.opts.controls[i]](this);
 			else if (typeof this.opts.controls[i] == "object") {
 				for (var controlName in this.opts.controls[i]) break;
-				c = new window['DrawingBoard']['Control'][controlName](this, this.opts.controls[i][controlName]);
+				c = new window.DrawingBoard.Control[controlName](this, this.opts.controls[i][controlName]);
 			}
 			if (c) {
 				this.addControl(c);
@@ -227,7 +290,7 @@ DrawingBoard.Board.prototype = {
 		pos = pos ? pos*1 : (typeof optsOrPos == "number" ? optsOrPos : null);
 
 		if (typeof control == "string")
-			control = new window['DrawingBoard']['Control'][control](this, opts);
+			control = new window.DrawingBoard.Control.control(this, opts);
 
 		if (pos)
 			this.dom.$controls.children().eq(pos).before(control.$el);
@@ -500,11 +563,6 @@ DrawingBoard.Board.prototype = {
 	 */
 
 	initDrawEvents: function() {
-		this.isDrawing = false;
-		this.isMouseHovering = false;
-		this.coords = {};
-		this.coords.old = this.coords.current = this.coords.oldMid = { x: 0, y: 0 };
-
 		this.dom.$canvas.on('mousedown touchstart', $.proxy(function(e) {
 			this._onInputStart(e, this._getInputCoords(e) );
 		}, this));
@@ -531,10 +589,13 @@ DrawingBoard.Board.prototype = {
 		}, this));
 
 		$('body').on('mouseup touchend', $.proxy(function(e) {
-			this.isDrawing = false;
+      this.userData[this.goinstant.userKey.name].isDrawing = false;
+      this.goinstant.userKey.key('/isDrawing').set(false, throwIferror);
 		}, this));
 
-		if (window.requestAnimationFrame) requestAnimationFrame( $.proxy(this.draw, this) );
+		if (window.requestAnimationFrame) {
+      requestAnimationFrame( $.proxy(this.draw, this) );
+    }
 	},
 
 	draw: function() {
@@ -565,28 +626,37 @@ DrawingBoard.Board.prototype = {
 	},
 
 	_onInputStart: function(e, coords) {
-		this.coords.current = this.coords.old = coords;
-		this.coords.oldMid = this._getMidInputCoords(coords);
-		this.isDrawing = true;
+		this.userData[this.goinstant.userKey.name].coords.current = this.userData[this.goinstant.userKey.name].coords.old = coords;
+		this.userData[this.goinstant.userKey.name].coords.oldMid = this._getMidInputCoords(coords);
+    this.userData[this.goinstant.userKey.name].isDrawing = true;
+    this.goinstant.userKey.key('/isDrawing').set(true, throwIfError);
 
-		if (!window.requestAnimationFrame) this.draw();
+		if (!window.requestAnimationFrame) {
+      this.draw();
+    }
 
 		this.ev.trigger('board:startDrawing', {e: e, coords: coords});
 		e.preventDefault();
 	},
 
 	_onInputMove: function(e, coords) {
-		this.coords.current = coords;
+		this.userData[this.goinstant.userKey.name].coords.current = coords;
+    if (this.userData[this.goinstant.userKey.name].isDrawing) {
+      this.goinstant.userKey.key('/coords/current').set(coords, throwIfError);
+    }
 		this.ev.trigger('board:drawing', {e: e, coords: coords});
 
-		if (!window.requestAnimationFrame) this.draw();
+    if (!window.requestAnimationFrame) {
+      this.draw();
+    }
 
 		e.preventDefault();
 	},
 
 	_onInputStop: function(e, coords) {
-		if (this.isDrawing && (!e.touches || e.touches.length === 0)) {
-			this.isDrawing = false;
+    if (this.userData[this.goinstant.userKey.name].isDrawing && (!e.touches || e.touches.length === 0)) {
+      this.userData[this.goinstant.userKey.name].isDrawing = false;
+      this.goinstant.userKey.key('/isDrawing').set(false, throwIfError);
 
 			this.saveWebStorage();
 			this.saveHistory();
@@ -598,15 +668,17 @@ DrawingBoard.Board.prototype = {
 	},
 
 	_onMouseOver: function(e, coords) {
-		this.isMouseHovering = true;
-		this.coords.old = this._getInputCoords(e);
-		this.coords.oldMid = this._getMidInputCoords(this.coords.old);
+    this.userData[this.goinstant.userKey.name].isMouseHovering = true;
+    this.userData[this.goinstant.userKey.name].coords.old = this._getInputCoords(e);
+    this.userData[this.goinstant.userKey.name].coords.oldMid = this._getMidInputCoords(this.userData[this.goinstant.userKey.name].coords.old);
+    this.goinstant.userKey.key('/isMouseHovering').set(true, throwIfError);
 
 		this.ev.trigger('board:mouseOver', {e: e, coords: coords});
 	},
 
 	_onMouseOut: function(e, coords) {
-		this.isMouseHovering = false;
+    this.userData[this.goinstant.userKey.name].isMouseHovering = false;
+    this.goinstant.userKey.key('/isMouseHovering').set(false, throwIfError);
 
 		this.ev.trigger('board:mouseOut', {e: e, coords: coords});
 	},
@@ -629,8 +701,8 @@ DrawingBoard.Board.prototype = {
 
 	_getMidInputCoords: function(coords) {
 		return {
-			x: this.coords.old.x + coords.x>>1,
-			y: this.coords.old.y + coords.y>>1
+			x: this.userData[this.goinstant.userKey.name].coords.old.x + coords.x>>1,
+			y: this.userData[this.goinstant.userKey.name].coords.old.y + coords.y>>1
 		};
 	}
 };
