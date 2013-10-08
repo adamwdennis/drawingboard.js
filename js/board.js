@@ -636,10 +636,10 @@ DrawingBoard.Board.prototype = {
         currentUserData.coords.old = currentUserData.coords.current;
         currentUserData.coords.oldMid = currentMid;
       }
-      if (window.requestAnimationFrame) {
-        requestAnimationFrame( $.proxy(function() { this.draw(); }, this) );
-      }
     }.bind(this));
+    if (window.requestAnimationFrame) {
+      requestAnimationFrame( $.proxy(function() { this.draw(); }, this) );
+    }
 	},
 
 	_onInputStart: function(e, coords) {
