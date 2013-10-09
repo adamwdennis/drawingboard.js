@@ -18,16 +18,7 @@ DrawingBoard.Board = function(id, opts) {
 
   this.goinstant = {
     room: this.opts.goinstant.room,
-    userKey: this.opts.goinstant.userKey,
-    channels: {
-      isDrawing: this.opts.goinstant.room.channel('isDrawing'),
-      isMouseHovering: this.opts.goinstant.room.channel('isMouseHovering'),
-      coordsCurrent: this.opts.goinstant.room.channel('coordsCurrent'),
-      coordsOld: this.opts.goinstant.room.channel('coordsOld'),
-      coordsOldMid: this.opts.goinstant.room.channel('coordsOldMid'),
-      lineWidth: this.opts.goinstant.room.channel('lineWidth'),
-      strokeStyle: this.opts.goinstant.room.channel('strokeStyle')
-    }
+    userKey: this.opts.goinstant.userKey
   };
   this.userData = {};
 
@@ -62,17 +53,6 @@ DrawingBoard.Board = function(id, opts) {
 	this.color = this.opts.color;
 
   this.initUserData(this.goinstant.userKey.name);
-
-  /*
-  this.goinstant.userKey.key('/isDrawing').set(this.userData[this.goinstant.userKey.name].isDrawing);
-  this.goinstant.userKey.key('/isMouseHovering').set(this.userData[this.goinstant.userKey.name].isMouseHovering);
-  this.goinstant.userKey.key('/coords/current').set(this.userData[this.goinstant.userKey.name].coords.current);
-  this.goinstant.userKey.key('/coords/old').set(this.userData[this.goinstant.userKey.name].coords.old);
-  this.goinstant.userKey.key('/coords/oldMid').set(this.userData[this.goinstant.userKey.name].coords.oldMid);
-  this.goinstant.userKey.key('/coords/fill').set(this.userData[this.goinstant.userKey.name].coords.fill);
-  this.goinstant.userKey.key('/lineWidth').set(this.userData[this.goinstant.userKey.name].lineWidth);
-  this.goinstant.userKey.key('/strokeStyle').set(this.userData[this.goinstant.userKey.name].strokeStyle);
-  */
 
   // subscribe to events for all users
   this.goinstant.room.users(function(err, userMap, keyMap) {
