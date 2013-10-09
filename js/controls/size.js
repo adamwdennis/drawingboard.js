@@ -28,6 +28,13 @@ DrawingBoard.Control.Size = DrawingBoard.Control.extend({
 				that.val = $(this).val();
 				that.updateView();
 
+        that.board.userData[that.board.goinstant.userKey.name].lineWidth = that.val;
+        that.board.goinstant.userKey.key('/lineWidth').set(that.val, function(err) {
+          if (err) {
+            throw err;
+          }
+        });
+
 				that.board.ev.trigger('size:changed', that.val);
 
 				e.preventDefault();
