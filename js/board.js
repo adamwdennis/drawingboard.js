@@ -63,6 +63,7 @@ DrawingBoard.Board = function(id, opts) {
 
   this.initUserData(this.goinstant.userKey.name);
 
+  /*
   this.goinstant.userKey.key('/isDrawing').set(this.userData[this.goinstant.userKey.name].isDrawing);
   this.goinstant.userKey.key('/isMouseHovering').set(this.userData[this.goinstant.userKey.name].isMouseHovering);
   this.goinstant.userKey.key('/coords/current').set(this.userData[this.goinstant.userKey.name].coords.current);
@@ -71,6 +72,7 @@ DrawingBoard.Board = function(id, opts) {
   this.goinstant.userKey.key('/coords/fill').set(this.userData[this.goinstant.userKey.name].coords.fill);
   this.goinstant.userKey.key('/lineWidth').set(this.userData[this.goinstant.userKey.name].lineWidth);
   this.goinstant.userKey.key('/strokeStyle').set(this.userData[this.goinstant.userKey.name].strokeStyle);
+  */
 
   // subscribe to events for all users
   this.goinstant.room.users(function(err, userMap, keyMap) {
@@ -174,7 +176,12 @@ DrawingBoard.Board.prototype = {
     }.bind(this), throwIfError);
     opts.user.key('/coords/fill').on('set', function(val) {
       this.userData[opts.user.name].coords.fill = val;
-      this.fill({coords: val});
+      console.log("GOT FILL FROM REMOTE USER:", val);
+      this.fill({
+        coords: val,
+        strokeStyle: this.userData[opts.user.name].strokeStyle,
+        isRemoteEvent: true
+      });
     }.bind(this), throwIfError);
     opts.user.key('/lineWidth').on('set', function(val) {
       this.userData[opts.user.name].lineWidth = val;
@@ -481,7 +488,6 @@ DrawingBoard.Board.prototype = {
 	 */
 
 	setMode: function(newMode, silent) {
-    console.log("SetMode:",newMode,silent);
 		silent = silent || false;
 		newMode = newMode || 'pencil';
 
@@ -552,7 +558,14 @@ DrawingBoard.Board.prototype = {
 		var INDEX = 0, X = 1, Y = 2, COLOR = 3;
 
 		// target color components
-		var stroke = this.ctx.strokeStyle;
+    var stroke;
+    if (e.isRemoteEvent) {
+      stroke = e.strokeStyle;
+      console.log("Remote StrokeStyle", stroke);
+    } else {
+      stroke = this.ctx.strokeStyle;
+      console.log("Local StrokeStyle", stroke);
+    }
 		var r = parseInt(stroke.substr(1, 2), 16);
 		var g = parseInt(stroke.substr(3, 2), 16);
 		var b = parseInt(stroke.substr(5, 2), 16);
@@ -589,8 +602,12 @@ DrawingBoard.Board.prototype = {
 		}
 
 		this.ctx.putImageData(img, 0, 0);
-    this.userData[this.goinstant.userKey.name].isDrawing = false;
-    this.goinstant.userKey.key('/isDrawing').set(this.userData[this.goinstant.userKey.name].isDrawing, throwIfError);
+
+    if (!e.isRemoteEvent) {
+      console.log("Setting /coords/fill:",e.coords);
+      this.userData[this.goinstant.userKey.name].coords.fill = e.coords;
+      this.goinstant.userKey.key('/coords/fill').set(e.coords, throwIfError);
+    }
 	},
 
 
@@ -666,6 +683,8 @@ DrawingBoard.Board.prototype = {
     if (window.requestAnimationFrame) {
       requestAnimationFrame( $.proxy(function() { this.draw(); }, this) );
     }
+    this.ctx.strokeStyle = this.userData[this.goinstant.userKey.name].strokeStyle;
+    this.ctx.lineWidth = this.userData[this.goinstant.userKey.name].lineWidth;
 	},
 
 	_onInputStart: function(e, coords) {
@@ -673,9 +692,13 @@ DrawingBoard.Board.prototype = {
 		this.userData[this.goinstant.userKey.name].coords.oldMid = this._getMidInputCoords(this.userData[this.goinstant.userKey.name].coords.old, coords);
     this.userData[this.goinstant.userKey.name].isDrawing = true;
 
-    this.goinstant.userKey.key('/coords/current').set(this.userData[this.goinstant.userKey.name].coords.current, throwIfError);
-    this.goinstant.userKey.key('/coords/oldMid').set(this.userData[this.goinstant.userKey.name].coords.oldMid, throwIfError);
-    this.goinstant.userKey.key('/isDrawing').set(true, throwIfError);
+    this.goinstant.userKey.key('/coords/old').set(this.userData[this.goinstant.userKey.name].coords.old, function(err) {
+      this.goinstant.userKey.key('/coords/current').set(this.userData[this.goinstant.userKey.name].coords.current, function(err) {
+        this.goinstant.userKey.key('/coords/oldMid').set(this.userData[this.goinstant.userKey.name].coords.oldMid, function(err) {
+          this.goinstant.userKey.key('/isDrawing').set(true, throwIfError);
+        }.bind(this));
+      }.bind(this));
+    }.bind(this));
 
 		if (!window.requestAnimationFrame) {
       this.draw();
