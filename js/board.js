@@ -158,7 +158,6 @@ DrawingBoard.Board.prototype = {
   },
 
   setupListeners: function(opts) {
-    console.log(opts.user.name);
     opts.user.key('/isDrawing').on('set', function(val) {
       this.userData[opts.user.name].isDrawing = val;
     }.bind(this), throwIfError);
@@ -176,7 +175,6 @@ DrawingBoard.Board.prototype = {
     }.bind(this), throwIfError);
     opts.user.key('/coords/fill').on('set', function(val) {
       this.userData[opts.user.name].coords.fill = val;
-      console.log("GOT FILL FROM REMOTE USER:", val);
       this.fill({
         coords: val,
         strokeStyle: this.userData[opts.user.name].strokeStyle,
@@ -220,7 +218,6 @@ DrawingBoard.Board.prototype = {
 	},
 
 	resetBackground: function(background, historize) {
-    console.log("resetBackground");
 		background = background || this.opts.background;
 		historize = typeof historize !== "undefined" ? historize : true;
 		var bgIsColor = DrawingBoard.Utils.isColor(background);
@@ -237,7 +234,6 @@ DrawingBoard.Board.prototype = {
 	},
 
 	resize: function() {
-    console.log("resize");
 		this.dom.$controls.toggleClass('drawing-board-controls-hidden', (!this.controls || !this.controls.length));
 
 		var canvasWidth, canvasHeight;
@@ -561,10 +557,8 @@ DrawingBoard.Board.prototype = {
     var stroke;
     if (e.isRemoteEvent) {
       stroke = e.strokeStyle;
-      console.log("Remote StrokeStyle", stroke);
     } else {
       stroke = this.ctx.strokeStyle;
-      console.log("Local StrokeStyle", stroke);
     }
 		var r = parseInt(stroke.substr(1, 2), 16);
 		var g = parseInt(stroke.substr(3, 2), 16);
@@ -604,7 +598,6 @@ DrawingBoard.Board.prototype = {
 		this.ctx.putImageData(img, 0, 0);
 
     if (!e.isRemoteEvent) {
-      console.log("Setting /coords/fill:",e.coords);
       this.userData[this.goinstant.userKey.name].coords.fill = e.coords;
       this.goinstant.userKey.key('/coords/fill').set(e.coords, throwIfError);
     }
