@@ -19,25 +19,17 @@ DrawingBoard.Board = function(id, opts) {
   this.goinstant = {
     room: this.opts.goinstant.room,
     userKey: this.opts.goinstant.userKey,
-    channel: this.opts.goinstant.room.channel('drawingboard.js')
+    channels: {
+      isDrawing: this.opts.goinstant.room.channel('isDrawing'),
+      isMouseHovering: this.opts.goinstant.room.channel('isMouseHovering'),
+      coordsCurrent: this.opts.goinstant.room.channel('coordsCurrent'),
+      coordsOld: this.opts.goinstant.room.channel('coordsOld'),
+      coordsOldMid: this.opts.goinstant.room.channel('coordsOldMid'),
+      lineWidth: this.opts.goinstant.room.channel('lineWidth'),
+      strokeStyle: this.opts.goinstant.room.channel('strokeStyle')
+    }
   };
-
-  console.log("I am:", this.goinstant.userKey);
-
   this.userData = {};
-
-  // subscribe to events for all users
-  console.log("Displaying all users in room:");
-  this.goinstant.room.users(function(err, userMap, keyMap) {
-    _.forEach(_.keys(userMap), function(curUserKey) {
-      if (this.goinstant.userKey.name !== keyMap[curUserKey].name) {
-        // setup Listeners
-        this.setupListeners({
-          user: keyMap[curUserKey]
-        });
-      }
-    }.bind(this));
-  }.bind(this));
 
 	this.ev = new DrawingBoard.Utils.MicroEvent();
 
@@ -65,36 +57,40 @@ DrawingBoard.Board = function(id, opts) {
 		}
 	}, this));
 
-  this.userData[this.goinstant.userKey.name] = {
-    isDrawing: false,
-    isMouseHovering: false,
-    coords: {
-      current: { x: 0, y: 0 },
-      old: { x: 0, y: 0 },
-      oldMid: { x: 0, y: 0 }
-    }
-  };
 	this.canvas = this.dom.$canvas.get(0);
 	this.ctx = this.canvas && this.canvas.getContext && this.canvas.getContext('2d') ? this.canvas.getContext('2d') : null;
 	this.color = this.opts.color;
 
-  console.log("USERDATA:",this.userData);
+  this.initUserData(this.goinstant.userKey.name);
+
+  this.goinstant.userKey.key('/isDrawing').set(this.userData[this.goinstant.userKey.name].isDrawing);
+  this.goinstant.userKey.key('/isMouseHovering').set(this.userData[this.goinstant.userKey.name].isMouseHovering);
+  this.goinstant.userKey.key('/coords/current').set(this.userData[this.goinstant.userKey.name].coords.current);
+  this.goinstant.userKey.key('/coords/old').set(this.userData[this.goinstant.userKey.name].coords.old);
+  this.goinstant.userKey.key('/coords/oldMid').set(this.userData[this.goinstant.userKey.name].coords.oldMid);
+  this.goinstant.userKey.key('/coords/fill').set(this.userData[this.goinstant.userKey.name].coords.fill);
+  this.goinstant.userKey.key('/lineWidth').set(this.userData[this.goinstant.userKey.name].lineWidth);
+  this.goinstant.userKey.key('/strokeStyle').set(this.userData[this.goinstant.userKey.name].strokeStyle);
+
+  // subscribe to events for all users
+  this.goinstant.room.users(function(err, userMap, keyMap) {
+    _.forEach(_.keys(userMap), function(curUserKey) {
+      if (this.goinstant.userKey.name !== keyMap[curUserKey].name) {
+        if (!this.userData[keyMap[curUserKey].name]) {
+          this.initUserData(keyMap[curUserKey].name);
+          this.setupListeners({
+            user: keyMap[curUserKey]
+          });
+        }
+      }
+    }.bind(this));
+  }.bind(this));
+
 	if (!this.ctx) {
 		if (this.opts.errorMessage)
 			this.$el.html(this.opts.errorMessage);
 		return false;
 	}
-
-  /*
-  this.goinstant.userKey.key('/ctx/canvas/width').set(this.ctx.canvas.width, throwIfError);
-  this.goinstant.userKey.key('/ctx/canvas/height').set(this.ctx.canvas.height, throwIfError);
-  this.goinstant.userKey.key('/ctx/lineWidth').set(this.ctx.lineWidth, throwIfError);
-  this.goinstant.userKey.key('/ctx/lineCap').set(this.ctx.lineCap, throwIfError);
-  this.goinstant.userKey.key('/ctx/lineJoin').set(this.ctx.lineJoin, throwIfError);
-  this.goinstant.userKey.key('/ctx/fillStyle').set(this.ctx.fillStyle, throwIfError);
-  this.goinstant.userKey.key('/ctx/globalCompositeOperation').set(this.ctx.globalCompositeOperation, throwIfError);
-  this.goinstant.userKey.key('/ctx/strokeStyle').set(this.ctx.strokeStyle, throwIfError);
-  */
 	this.storage = this._getStorage();
 
 	this.initHistory();
@@ -144,18 +140,23 @@ DrawingBoard.Board.prototype = {
 	 * resize values depend on the `enlargeYourContainer` option
 	 */
 
+  initUserData: function(userName) {
+    this.userData[userName] = {
+      isDrawing: false,
+      isMouseHovering: false,
+      coords: {
+        current: { x: 0, y: 0 },
+        old: { x: 0, y: 0 },
+        oldMid: { x: 0, y: 0 },
+        fill: { x: 0, y: 0 }
+      },
+      lineWidth: this.ctx.lineWidth,
+      strokeStyle: this.ctx.strokeStyle
+    };
+  },
+
   setupListeners: function(opts) {
-    if (!this.userData[opts.user.name]) {
-      this.userData[opts.user.name] = {
-        isDrawing: false,
-        isMouseHovering: false,
-        coords: {
-          current: { x: 0, y: 0 },
-          old: { x: 0, y: 0 },
-          oldMid: { x: 0, y: 0 }
-        }
-      };
-    }
+    console.log(opts.user.name);
     opts.user.key('/isDrawing').on('set', function(val) {
       this.userData[opts.user.name].isDrawing = val;
     }.bind(this), throwIfError);
@@ -170,6 +171,16 @@ DrawingBoard.Board.prototype = {
     }.bind(this), throwIfError);
     opts.user.key('/coords/oldMid').on('set', function(val) {
       this.userData[opts.user.name].coords.oldMid = val;
+    }.bind(this), throwIfError);
+    opts.user.key('/coords/fill').on('set', function(val) {
+      this.userData[opts.user.name].coords.fill = val;
+      this.fill({coords: val});
+    }.bind(this), throwIfError);
+    opts.user.key('/lineWidth').on('set', function(val) {
+      this.userData[opts.user.name].lineWidth = val;
+    }.bind(this), throwIfError);
+    opts.user.key('/strokeStyle').on('set', function(val) {
+      this.userData[opts.user.name].strokeStyle = val;
     }.bind(this), throwIfError);
   },
 
@@ -202,6 +213,7 @@ DrawingBoard.Board.prototype = {
 	},
 
 	resetBackground: function(background, historize) {
+    console.log("resetBackground");
 		background = background || this.opts.background;
 		historize = typeof historize !== "undefined" ? historize : true;
 		var bgIsColor = DrawingBoard.Utils.isColor(background);
@@ -218,6 +230,7 @@ DrawingBoard.Board.prototype = {
 	},
 
 	resize: function() {
+    console.log("resize");
 		this.dom.$controls.toggleClass('drawing-board-controls-hidden', (!this.controls || !this.controls.length));
 
 		var canvasWidth, canvasHeight;
@@ -280,9 +293,9 @@ DrawingBoard.Board.prototype = {
 		if (!this.opts.controls.length || !DrawingBoard.Control) return false;
 		for (var i = 0; i < this.opts.controls.length; i++) {
 			var c = null;
-			if (typeof this.opts.controls[i] == "string")
-				c = new window.DrawingBoard.Control[this.opts.controls[i]](this);
-			else if (typeof this.opts.controls[i] == "object") {
+			if (typeof this.opts.controls[i] == "string") {
+        c = new window.DrawingBoard.Control[this.opts.controls[i]](this);
+      } else if (typeof this.opts.controls[i] == "object") {
 				for (var controlName in this.opts.controls[i]) break;
 				c = new window.DrawingBoard.Control[controlName](this, this.opts.controls[i][controlName]);
 			}
@@ -468,6 +481,7 @@ DrawingBoard.Board.prototype = {
 	 */
 
 	setMode: function(newMode, silent) {
+    console.log("SetMode:",newMode,silent);
 		silent = silent || false;
 		newMode = newMode || 'pencil';
 
@@ -477,13 +491,16 @@ DrawingBoard.Board.prototype = {
 			this.ctx.globalCompositeOperation = newMode === "eraser" ? "destination-out" : "source-over";
 		else {
 			if (newMode === "eraser") {
-				if (this.opts.eraserColor === "background" && DrawingBoard.Utils.isColor(this.opts.background))
-					this.ctx.strokeStyle = this.opts.background;
-				else if (DrawingBoard.Utils.isColor(this.opts.eraserColor))
-					this.ctx.strokeStyle = this.opts.eraserColor;
+				if (this.opts.eraserColor === "background" && DrawingBoard.Utils.isColor(this.opts.background)) {
+          this.ctx.strokeStyle = this.opts.background;
+        } else if (DrawingBoard.Utils.isColor(this.opts.eraserColor)) {
+          this.ctx.strokeStyle = this.opts.eraserColor;
+        }
 			} else if (!this.mode || this.mode === "eraser") {
 				this.ctx.strokeStyle = this.color;
 			}
+      this.userData[this.goinstant.userKey.name].strokeStyle = this.ctx.strokeStyle;
+      this.goinstant.userKey.key('/strokeStyle').set(this.ctx.strokeStyle, throwIfError);
 
 			if (newMode === "filler")
 				this.ev.bind('board:startDrawing', $.proxy(this.fill, this));
@@ -505,13 +522,17 @@ DrawingBoard.Board.prototype = {
 		this.color = color;
 		if (this.opts.eraserColor !== "transparent" && this.mode === "eraser") {
 			var setStrokeStyle = function(mode) {
-				if (mode !== "eraser")
-					that.strokeStyle = that.color;
+				if (mode !== "eraser") {
+          that.strokeStyle = that.color;
+        }
 				that.ev.unbind('board:mode', setStrokeStyle);
 			};
 			this.ev.bind('board:mode', setStrokeStyle);
-		} else
-			this.ctx.strokeStyle = this.color;
+		} else {
+      this.ctx.strokeStyle = this.color;
+    }
+    this.userData[this.goinstant.userKey.name].strokeStyle = this.ctx.strokeStyle;
+    this.goinstant.userKey.key('/strokeStyle').set(this.ctx.strokeStyle, throwIfError);
 	},
 
 	/**
@@ -568,6 +589,8 @@ DrawingBoard.Board.prototype = {
 		}
 
 		this.ctx.putImageData(img, 0, 0);
+    this.userData[this.goinstant.userKey.name].isDrawing = false;
+    this.goinstant.userKey.key('/isDrawing').set(this.userData[this.goinstant.userKey.name].isDrawing, throwIfError);
 	},
 
 
@@ -613,6 +636,8 @@ DrawingBoard.Board.prototype = {
 
 	draw: function() {
     _.forEach(this.userData, function(currentUserData) {
+      this.ctx.strokeStyle = currentUserData.strokeStyle;
+      this.ctx.lineWidth = currentUserData.lineWidth;
       //if the pencil size is big (>10), the small crosshair makes a friend: a circle of the size of the pencil
       //todo: have the circle works on every browser - it currently should be added only when CSS pointer-events are supported
       //we assume that if requestAnimationFrame is supported, pointer-events is too, but this is terribad.
@@ -626,6 +651,8 @@ DrawingBoard.Board.prototype = {
       }
 
       if (currentUserData.isDrawing) {
+        // TODO: use all code from setColor
+
         var currentMid = this._getMidInputCoords(currentUserData.coords.old, currentUserData.coords.current);
         this.ctx.beginPath();
         this.ctx.moveTo(currentMid.x, currentMid.y);
