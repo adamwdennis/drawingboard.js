@@ -18,7 +18,17 @@ DrawingBoard.Board = function(id, opts) {
 
   this.goinstant = {
     room: this.opts.goinstant.room,
-    userKey: this.opts.goinstant.userKey
+    userKey: this.opts.goinstant.userKey,
+    channels: {
+      isDrawing: this.opts.goinstant.room.channel('isDrawing'),
+      isMouseHovering: this.opts.goinstant.room.channel('isMouseHovering'),
+      coordsCurrent: this.opts.goinstant.room.channel('coordsCurrent'),
+      coordsOld: this.opts.goinstant.room.channel('coordsOld'),
+      coordsOldMid: this.opts.goinstant.room.channel('coordsOldMid'),
+      coordsFill: this.opts.goinstant.room.channel('coordsFill'),
+      lineWidth: this.opts.goinstant.room.channel('lineWidth'),
+      strokeStyle: this.opts.goinstant.room.channel('strokeStyle')
+    }
   };
   this.userData = {};
 
@@ -66,6 +76,36 @@ DrawingBoard.Board = function(id, opts) {
         }
       }
     }.bind(this));
+  }.bind(this));
+
+  this.goinstant.channels.isDrawing.on('message', function(msg) {
+    this.userData[msg.username].isDrawing = msg.val;
+  }.bind(this));
+  this.goinstant.channels.isMouseHovering.on('message', function(msg) {
+    this.userData[msg.username].isMouseHovering = msg.val;
+  }.bind(this));
+  this.goinstant.channels.coordsCurrent.on('message', function(msg) {
+    this.userData[msg.username].coords.current = msg.val;
+  }.bind(this));
+  this.goinstant.channels.coordsOld.on('message', function(msg) {
+    this.userData[msg.username].coords.old = msg.val;
+  }.bind(this));
+  this.goinstant.channels.coordsOldMid.on('message', function(msg) {
+    this.userData[msg.username].coords.oldMid = msg.val;
+  }.bind(this));
+  this.goinstant.channels.coordsFill.on('message', function(msg) {
+    this.userData[msg.username].coords.fill = msg.val;
+    this.fill({
+      coords: msg.val,
+      strokeStyle: this.userData[msg.username].strokeStyle,
+      isRemoteEvent: true
+    });
+  }.bind(this));
+  this.goinstant.channels.lineWidth.on('message', function(msg) {
+    this.userData[msg.username].lineWidth = msg.val;
+  }.bind(this));
+  this.goinstant.channels.strokeStyle.on('message', function(msg) {
+    this.userData[msg.username].strokeStyle = msg.val;
   }.bind(this));
 
 	if (!this.ctx) {
@@ -482,7 +522,11 @@ DrawingBoard.Board.prototype = {
 				this.ctx.strokeStyle = this.color;
 			}
       this.userData[this.goinstant.userKey.name].strokeStyle = this.ctx.strokeStyle;
-      this.goinstant.userKey.key('/strokeStyle').set(this.ctx.strokeStyle, throwIfError);
+      //this.goinstant.userKey.key('/strokeStyle').set(this.ctx.strokeStyle, throwIfError);
+      this.goinstant.channels.strokeStyle.message({
+        username: this.goinstant.userKey.name,
+        val: this.userData[this.goinstant.userKey.name].strokeStyle
+      });
 
 			if (newMode === "filler")
 				this.ev.bind('board:startDrawing', $.proxy(this.fill, this));
@@ -514,7 +558,11 @@ DrawingBoard.Board.prototype = {
       this.ctx.strokeStyle = this.color;
     }
     this.userData[this.goinstant.userKey.name].strokeStyle = this.ctx.strokeStyle;
-    this.goinstant.userKey.key('/strokeStyle').set(this.ctx.strokeStyle, throwIfError);
+    //this.goinstant.userKey.key('/strokeStyle').set(this.ctx.strokeStyle, throwIfError);
+    this.goinstant.channels.strokeStyle.message({
+      username: this.goinstant.userKey.name,
+      val: this.userData[this.goinstant.userKey.name].strokeStyle
+    });
 	},
 
 	/**
@@ -579,7 +627,12 @@ DrawingBoard.Board.prototype = {
 
     if (!e.isRemoteEvent) {
       this.userData[this.goinstant.userKey.name].coords.fill = e.coords;
-      this.goinstant.userKey.key('/coords/fill').set(e.coords, throwIfError);
+      //this.goinstant.userKey.key('/coords/fill').set(e.coords, throwIfError);
+      this.goinstant.channel.message(this.userData[this.goinstant.userKey.name]);
+      this.goinstant.channels.coordsFill.message({
+        username: this.goinstant.userKey.name,
+        val: this.userData[this.goinstant.userKey.name].coords.fill
+      });
     }
 	},
 
@@ -616,7 +669,11 @@ DrawingBoard.Board.prototype = {
 
 		$('body').on('mouseup touchend', $.proxy(function(e) {
       this.userData[this.goinstant.userKey.name].isDrawing = false;
-      this.goinstant.userKey.key('/isDrawing').set(this.userData[this.goinstant.userKey.name].isDrawing, throwIfError);
+      //this.goinstant.userKey.key('/isDrawing').set(this.userData[this.goinstant.userKey.name].isDrawing, throwIfError);
+      this.goinstant.channels.isDrawing.message({
+        username: this.goinstant.userKey.name,
+        val: this.userData[this.goinstant.userKey.name].isDrawing
+      });
 		}, this));
 
 		if (window.requestAnimationFrame) {
@@ -664,7 +721,7 @@ DrawingBoard.Board.prototype = {
 		this.userData[this.goinstant.userKey.name].coords.current = this.userData[this.goinstant.userKey.name].coords.old = coords;
 		this.userData[this.goinstant.userKey.name].coords.oldMid = this._getMidInputCoords(this.userData[this.goinstant.userKey.name].coords.old, coords);
     this.userData[this.goinstant.userKey.name].isDrawing = true;
-
+    /*
     this.goinstant.userKey.key('/coords/old').set(this.userData[this.goinstant.userKey.name].coords.old, function(err) {
       this.goinstant.userKey.key('/coords/current').set(this.userData[this.goinstant.userKey.name].coords.current, function(err) {
         this.goinstant.userKey.key('/coords/oldMid').set(this.userData[this.goinstant.userKey.name].coords.oldMid, function(err) {
@@ -672,6 +729,23 @@ DrawingBoard.Board.prototype = {
         }.bind(this));
       }.bind(this));
     }.bind(this));
+    */
+    this.goinstant.channels.isDrawing.message({
+      username: this.goinstant.userKey.name,
+      val: this.userData[this.goinstant.userKey.name].isDrawing
+    });
+    this.goinstant.channels.coordsCurrent.message({
+      username: this.goinstant.userKey.name,
+      val: this.userData[this.goinstant.userKey.name].coords.current
+    });
+    this.goinstant.channels.coordsOld.message({
+      username: this.goinstant.userKey.name,
+      val: this.userData[this.goinstant.userKey.name].coords.old
+    });
+    this.goinstant.channels.coordsOldMid.message({
+      username: this.goinstant.userKey.name,
+      val: this.userData[this.goinstant.userKey.name].coords.oldMid
+    });
 
 		if (!window.requestAnimationFrame) {
       this.draw();
@@ -684,7 +758,11 @@ DrawingBoard.Board.prototype = {
 	_onInputMove: function(e, coords) {
 		this.userData[this.goinstant.userKey.name].coords.current = coords;
     if (this.userData[this.goinstant.userKey.name].isDrawing) {
-      this.goinstant.userKey.key('/coords/current').set(coords, throwIfError);
+      //this.goinstant.userKey.key('/coords/current').set(coords, throwIfError);
+      this.goinstant.channels.coordsCurrent.message({
+        username: this.goinstant.userKey.name,
+        val: this.userData[this.goinstant.userKey.name].coords.current
+      });
     }
 		this.ev.trigger('board:drawing', {e: e, coords: coords});
 
@@ -698,7 +776,11 @@ DrawingBoard.Board.prototype = {
 	_onInputStop: function(e, coords) {
     if (this.userData[this.goinstant.userKey.name].isDrawing && (!e.touches || e.touches.length === 0)) {
       this.userData[this.goinstant.userKey.name].isDrawing = false;
-      this.goinstant.userKey.key('/isDrawing').set(false, throwIfError);
+      //this.goinstant.userKey.key('/isDrawing').set(false, throwIfError);
+      this.goinstant.channels.isDrawing.message({
+        username: this.goinstant.userKey.name,
+        val: this.userData[this.goinstant.userKey.name].isDrawing
+      });
 
 			this.saveWebStorage();
 			this.saveHistory();
@@ -714,16 +796,34 @@ DrawingBoard.Board.prototype = {
     this.userData[this.goinstant.userKey.name].coords.old = this._getInputCoords(e);
     this.userData[this.goinstant.userKey.name].coords.oldMid = this._getMidInputCoords(this.userData[this.goinstant.userKey.name].coords.old, this.userData[this.goinstant.userKey.name].coords.old);
 
+    /*
     this.goinstant.userKey.key('/isMouseHovering').set(this.userData[this.goinstant.userKey.name].isMouseHovering, throwIfError);
     this.goinstant.userKey.key('/coords/old').set(this.userData[this.goinstant.userKey.name].coords.old, throwIfError);
     this.goinstant.userKey.key('/coords/oldMid').set(this.userData[this.goinstant.userKey.name].coords.oldMid, throwIfError);
+    */
+    this.goinstant.channels.isMouseHovering.message({
+      username: this.goinstant.userKey.name,
+      val: this.userData[this.goinstant.userKey.name].isMouseHovering
+    });
+    this.goinstant.channels.coordsOld.message({
+      username: this.goinstant.userKey.name,
+      val: this.userData[this.goinstant.userKey.name].coords.old
+    });
+    this.goinstant.channels.coordsOldMid.message({
+      username: this.goinstant.userKey.name,
+      val: this.userData[this.goinstant.userKey.name].coords.oldMid
+    });
 
 		this.ev.trigger('board:mouseOver', {e: e, coords: coords});
 	},
 
 	_onMouseOut: function(e, coords) {
     this.userData[this.goinstant.userKey.name].isMouseHovering = false;
-    this.goinstant.userKey.key('/isMouseHovering').set(false, throwIfError);
+    //this.goinstant.userKey.key('/isMouseHovering').set(false, throwIfError);
+    this.goinstant.channels.isMouseHovering.message({
+      username: this.goinstant.userKey.name,
+      val: this.userData[this.goinstant.userKey.name].isMouseHovering
+    });
 
 		this.ev.trigger('board:mouseOut', {e: e, coords: coords});
 	},
