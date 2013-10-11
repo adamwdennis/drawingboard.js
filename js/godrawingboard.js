@@ -71,7 +71,6 @@ var godrawingboard = (function() {
             if (err) {
               return next(err);
             }
-            console.log("CHANGED DSIPLAYNAME");
 
             // publish a notification of the new user
             notifications.publish(publishOpts, next);

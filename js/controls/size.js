@@ -29,9 +29,9 @@ DrawingBoard.Control.Size = DrawingBoard.Control.extend({
 				that.updateView();
 
         that.board.userData[that.board.goinstant.userKey.name].lineWidth = that.val;
-        that.goinstant.channels.lineWidth.message({
-          username: that.goinstant.userKey.name,
-          val: this.userData[that.goinstant.userKey.name].lineWidth
+        that.board.goinstant.channels.lineWidth.message({
+          username: that.board.goinstant.userKey.name,
+          val: that.board.userData[that.board.goinstant.userKey.name].lineWidth
         });
         /*
         that.board.goinstant.userKey.key('/lineWidth').set(that.val, function(err) {

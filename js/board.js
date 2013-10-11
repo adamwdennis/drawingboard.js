@@ -70,13 +70,35 @@ DrawingBoard.Board = function(id, opts) {
       if (this.goinstant.userKey.name !== keyMap[curUserKey].name) {
         if (!this.userData[keyMap[curUserKey].name]) {
           this.initUserData(keyMap[curUserKey].name);
-          this.setupListeners({
-            user: keyMap[curUserKey]
-          });
+          this.setupListeners(keyMap[curUserKey]);
         }
       }
     }.bind(this));
   }.bind(this));
+
+  this.goinstant.room.on('join', function(userObj) {
+    this.initUserData(userObj.name);
+    this.setupListeners(userObj);
+  }.bind(this));
+
+  var history = {
+    length: null,
+    arr: []
+  };
+  this.goinstant.room.key('/history/length').on('set', {
+    listener: function(val, context) {
+      this.goinstant.room.key('/history').get(function(err, val) {
+        if (err) {
+          throw err;
+        }
+        var img = "";
+        _.forEach(val, function(item) {
+          img += item;
+        });
+        this.setImg(img);
+      }.bind(this));
+    }.bind(this)
+  });
 
   this.goinstant.channels.isDrawing.on('message', function(msg) {
     this.userData[msg.username].isDrawing = msg.val;
@@ -177,35 +199,35 @@ DrawingBoard.Board.prototype = {
     };
   },
 
-  setupListeners: function(opts) {
-    opts.user.key('/isDrawing').on('set', function(val) {
-      this.userData[opts.user.name].isDrawing = val;
+  setupListeners: function(userObj) {
+    userObj.key('/isDrawing').on('set', function(val) {
+      this.userData[userObj.name].isDrawing = val;
     }.bind(this), throwIfError);
-    opts.user.key('/isMouseHovering').on('set', function(val) {
-      this.userData[opts.user.name].isMouseHovering = val;
+    userObj.key('/isMouseHovering').on('set', function(val) {
+      this.userData[userObj.name].isMouseHovering = val;
     }.bind(this), throwIfError);
-    opts.user.key('/coords/current').on('set', function(val) {
-      this.userData[opts.user.name].coords.current = val;
+    userObj.key('/coords/current').on('set', function(val) {
+      this.userData[userObj.name].coords.current = val;
     }.bind(this), throwIfError);
-    opts.user.key('/coords/old').on('set', function(val) {
-      this.userData[opts.user.name].coords.old = val;
+    userObj.key('/coords/old').on('set', function(val) {
+      this.userData[userObj.name].coords.old = val;
     }.bind(this), throwIfError);
-    opts.user.key('/coords/oldMid').on('set', function(val) {
-      this.userData[opts.user.name].coords.oldMid = val;
+    userObj.key('/coords/oldMid').on('set', function(val) {
+      this.userData[userObj.name].coords.oldMid = val;
     }.bind(this), throwIfError);
-    opts.user.key('/coords/fill').on('set', function(val) {
-      this.userData[opts.user.name].coords.fill = val;
+    userObj.key('/coords/fill').on('set', function(val) {
+      this.userData[userObj.name].coords.fill = val;
       this.fill({
         coords: val,
-        strokeStyle: this.userData[opts.user.name].strokeStyle,
+        strokeStyle: this.userData[userObj.name].strokeStyle,
         isRemoteEvent: true
       });
     }.bind(this), throwIfError);
-    opts.user.key('/lineWidth').on('set', function(val) {
-      this.userData[opts.user.name].lineWidth = val;
+    userObj.key('/lineWidth').on('set', function(val) {
+      this.userData[userObj.name].lineWidth = val;
     }.bind(this), throwIfError);
-    opts.user.key('/strokeStyle').on('set', function(val) {
-      this.userData[opts.user.name].strokeStyle = val;
+    userObj.key('/strokeStyle').on('set', function(val) {
+      this.userData[userObj.name].strokeStyle = val;
     }.bind(this), throwIfError);
   },
 
@@ -435,17 +457,63 @@ DrawingBoard.Board.prototype = {
 	/**
 	 * WebStorage handling : save and restore to local or session storage
 	 */
+  splitStringIntoChunks: function(inputStr, maxLength) {
+    var numElements = (inputStr.length + maxLength - 1) / maxLength;
+    var stringChunks = [];
+    var start, end, chunk, i;
+    for (i = 0; i < numElements; ++i) {
+      start = i * maxLength;
+      end = Math.min(inputStr.length, start + maxLength);
+      chunk = inputStr.substring(start, end);
+      if (chunk) {
+        stringChunks.push(chunk);
+      }
+    }
+    return stringChunks;
+  },
 
 	saveWebStorage: function() {
 		if (window[this.storage]) {
 			window[this.storage].setItem('drawing-board-' + this.id, this.getImg());
 			this.ev.trigger('board:save' + this.storage.charAt(0).toUpperCase() + this.storage.slice(1), this.getImg());
 		}
+
+    var historyKey = this.goinstant.room.key('/history');
+    var chunksArr = this.splitStringIntoChunks(this.getImg(), 10000);
+    historyKey.remove(function(err) {
+      var options = {
+        bubble: true
+      };
+      var tasks = [];
+      for(var i = 0; i < chunksArr.length; ++i) {
+        var chunkKey = historyKey.key('/' + i);
+        tasks.push(chunkKey.set.bind(chunkKey, chunksArr[i], options));
+      }
+      async.series(tasks, function(err, res) {
+        if (err) {
+          throw err;
+        }
+        historyKey.key("/length").set(chunksArr.length, options, function(err) {
+          if (err) {
+            throw err;
+          }
+        });
+      }.bind(this));
+    }.bind(this));
 	},
 
 	restoreWebStorage: function() {
+    this.goinstant.room.key('/history').get(function(err, val) {
+      if (val) {
+        var img = "";
+        _.forEach(val, function(item) {
+          img += item;
+        });
+        this.setImg(img);
+      }
+    }.bind(this));
 		if (window[this.storage] && window[this.storage].getItem('drawing-board-' + this.id) !== null) {
-			this.setImg(window[this.storage].getItem('drawing-board-' + this.id));
+			//this.setImg(window[this.storage].getItem('drawing-board-' + this.id));
 			this.ev.trigger('board:restore' + this.storage.charAt(0).toUpperCase() + this.storage.slice(1), window[this.storage].getItem('drawing-board-' + this.id));
 		}
 	},
@@ -455,6 +523,8 @@ DrawingBoard.Board.prototype = {
 			window[this.storage].removeItem('drawing-board-' + this.id);
 			this.ev.trigger('board:clear' + this.storage.charAt(0).toUpperCase() + this.storage.slice(1));
 		}
+    var historyKey = this.goinstant.room.key('/history');
+    historyKey.remove(throwIfError);
 	},
 
 	_getStorage: function() {
@@ -628,7 +698,6 @@ DrawingBoard.Board.prototype = {
     if (!e.isRemoteEvent) {
       this.userData[this.goinstant.userKey.name].coords.fill = e.coords;
       //this.goinstant.userKey.key('/coords/fill').set(e.coords, throwIfError);
-      this.goinstant.channel.message(this.userData[this.goinstant.userKey.name]);
       this.goinstant.channels.coordsFill.message({
         username: this.goinstant.userKey.name,
         val: this.userData[this.goinstant.userKey.name].coords.fill
@@ -730,22 +799,25 @@ DrawingBoard.Board.prototype = {
       }.bind(this));
     }.bind(this));
     */
-    this.goinstant.channels.isDrawing.message({
-      username: this.goinstant.userKey.name,
-      val: this.userData[this.goinstant.userKey.name].isDrawing
-    });
-    this.goinstant.channels.coordsCurrent.message({
-      username: this.goinstant.userKey.name,
-      val: this.userData[this.goinstant.userKey.name].coords.current
-    });
     this.goinstant.channels.coordsOld.message({
       username: this.goinstant.userKey.name,
       val: this.userData[this.goinstant.userKey.name].coords.old
-    });
-    this.goinstant.channels.coordsOldMid.message({
-      username: this.goinstant.userKey.name,
-      val: this.userData[this.goinstant.userKey.name].coords.oldMid
-    });
+    }, function() {
+      this.goinstant.channels.coordsOldMid.message({
+        username: this.goinstant.userKey.name,
+        val: this.userData[this.goinstant.userKey.name].coords.oldMid
+      }, function() {
+        this.goinstant.channels.coordsCurrent.message({
+          username: this.goinstant.userKey.name,
+          val: this.userData[this.goinstant.userKey.name].coords.current
+        }, function() {
+          this.goinstant.channels.isDrawing.message({
+            username: this.goinstant.userKey.name,
+            val: this.userData[this.goinstant.userKey.name].isDrawing
+          });
+        }.bind(this));
+      }.bind(this));
+    }.bind(this));
 
 		if (!window.requestAnimationFrame) {
       this.draw();
